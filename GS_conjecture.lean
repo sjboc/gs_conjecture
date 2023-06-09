@@ -1,8 +1,11 @@
 import Mathlib.Tactic
-import Mathlib.RingTheory.MvPolynomial.Basic
+import Mathlib.Init.Function
 import Mathlib.Algebra.Field.Basic
+import Mathlib.Algebra.MonoidAlgebra.Basic
 import Mathlib.Data.Rat.Cast
 import Mathlib.Data.Fin.Basic
+import Mathlib.Algebra.MonoidAlgebra.Support
+import Mathlib.RingTheory.MvPolynomial.Basic
 
 open MvPolynomial
 
@@ -156,6 +159,86 @@ lemma MapFinSum_eq_FinSumMap {R : Type u} [CommSemiring R] {S : Type v}
                    rw[Function.comp_apply]
                    rw[hn]
                    rfl
+
+
+noncomputable section
+
+def LBF_f_x_y (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
+  (Z : Fin m → R) (f : Fin n → Fin m) (x : Fin n) (y : Fin m)
+  : MvPolynomial (Fin n) R := by
+    by_cases ((f x) = y)
+    exact MvPolynomial.C 1
+    exact (Z (f x) - Z y)⁻¹ • ((MvPolynomial.X x) + (MvPolynomial.C (-(Z y))))
+
+def LBF_f_x (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
+  (Z : Fin m → R) (f : Fin n → Fin m) (x : Fin n)
+  : MvPolynomial (Fin n) R := 
+    FinProduct (MvPolynomial (Fin n) R) m (λ y => LBF_f_x_y R n m Z f x y)
+
+def LBF_f (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
+  (Z : Fin m → R) (f : Fin n → Fin m)
+  : MvPolynomial (Fin n) R := 
+    FinProduct (MvPolynomial (Fin n) R) n (λ x => LBF_f_x R n m Z f x)
+
+def Fin_fun_to_pow {n m : ℕ} (f : Fin n → Fin m) : Fin (n^m) := sorry
+
+def Fin_pow_to_fun {n m : ℕ} (k : Fin (n^m)) : (Fin n → Fin m) := sorry
+
+lemma Fin_pow_fun_inv {n m : ℕ} : (@Fin_pow_to_fun n m) ∘ (@Fin_fun_to_pow n m) = id := sorry
+
+lemma Fin_inv_fun_pow {n m : ℕ} : (@Fin_fun_to_pow n m) ∘ (@Fin_pow_to_fun n m) = id := sorry
+            
+
+def Lagrange_Interpolation (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
+  (Z : Fin m → R) (V : (Fin n → Fin m) → R)
+  : MvPolynomial (Fin n) R := 
+    FinSum (MvPolynomial (Fin n) R) (n^m) 
+      (λ k => (V (Fin_pow_to_fun k)) • LBF_f R n m Z V (Fin_pow_to_fun k))
+
+lemma LBF_f_x_y_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R} {hZ : Function.Injective Z}
+  {f : Fin n → Fin m} {x : Fin n} {y : Fin m}
+  {g : Fin n → R} {hg : (g x) = Z (f x)} 
+  : ((MvPolynomial.eval g (LBF_f_x_y R n m Z f x y)) = 1) := by
+    unfold LBF_f_x_y
+    by_cases (f x = y)
+    simp only [dite_eq_ite, h, ite_true]
+    repeat rw [map_one]
+    simp only [dite_eq_ite, h, ite_false]
+    simp only [map_add, smul_eval, eval_X, eval_C, mul_neg]
+    rw [hg]
+    rw[← sub_eq_add_neg]
+    have q : Z (f x) - Z y ≠ 0 := by
+      intro p
+      have p' : Z (f x) - Z y + Z y = Z y := by
+        simp only [p, zero_add]
+      simp only [sub_add_cancel] at p' 
+      exact ((h (hZ p')))
+    simp only [ne_eq, q, not_false_eq_true, inv_mul_cancel]
+
+lemma LBF_f_x_eq_One (R : Type u) [Field R] [DecidableEq R] (n m : ℕ)
+  (Z : Fin m → R) (hZ : Function.Injective Z)
+  (f : Fin n → Fin m) (x : Fin n) (y : Fin m)
+  (g : Fin n → R) (hg : (g x) = Z (f x)) 
+  : ((MvPolynomial.eval g (LBF_f_x R n m Z f x)) = 1) := by
+    unfold LBF_f_x
+    rw [EvalFinProduct_eq_FinProductEval]
+    apply FinProduct_eq_One
+    intro k
+    simp only [Function.comp_apply]
+    exact @LBF_f_x_y_eq_One _ _ _ _ _ _ hZ _ _ _ _ hg
+    
+-- lemma LBF_f_eq_One TODO
+
+
+/-
+
+send 0 1 to 2
+send 0 0 to 3
+
+2 * (1 * 1 * (X_2 - 0) 1) + 3 * (1 * 1 * (X_2 - 1) 1)
+
+-/
 
 
 
