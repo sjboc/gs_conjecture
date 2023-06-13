@@ -231,7 +231,7 @@ lemma LBF_f_x_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
 lemma LBF_f_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
   {Z : Fin m → R} (hZ : Function.Injective Z)
   {f : Fin n → Fin m}
-  {g : Fin n → R} (hg : (k : Fin n) → (g k) = Z (f k)) 
+  {g : Fin n → R} (hg : ∀ k, (g k) = Z (f k)) 
   : ((eval g (LBF_f R n m Z f)) = 1) := by
     unfold LBF_f
     rw [EvalFinProduct_eq_FinProductEval]
@@ -308,6 +308,7 @@ theorem Eval_Lagrange_Interpolation {R : Type u} [Field R] [DecidableEq R] {n m 
     rw [not_forall] at ht'' 
     simp only [ne_eq]
     exact ht''
+
 
 lemma LBF_f_x_fx_deg_x {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
   {Z : Fin m → R}
