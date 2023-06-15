@@ -181,24 +181,6 @@ def LBF_f (R : Type u) [Field R] [DecidableEq R] (n m : ℕ)
     FinProduct (MvPolynomial (Fin n) R) n (λ x => LBF_f_x R n m Z f x)
 
 
--- def Fin_mul_cast {n m : ℕ} (k : Fin n) : Fin (n * (m + 1)) := 
---   ⟨ k.1 * (m + 1), by simp only [add_pos_iff, or_true, mul_lt_mul_right, k.2] ⟩
-
-
--- def Fin_mul_cast' {n m : ℕ} (hn : 1 ≤ n) (k : Fin m) : Fin (n * m) :=
---   ⟨ k.1, calc k.1 < m := k.2
---               _ ≤ n * m := by cases m with
---                            | zero => simp only [Nat.zero_eq, mul_zero, 
---                                   lt_self_iff_false, not_lt_zero' k.2]
---                            | succ m => simp only [gt_iff_lt, Nat.succ_pos', 
---                                   le_mul_iff_one_le_left, hn]⟩
-
-              
--- def Fin_succ_lemma {n m : ℕ} : 1 ≤ (m + 1)^n := by
---   simp only [← Nat.lt_succ_iff, Nat.succ_lt_succ_iff, gt_iff_lt, add_pos_iff, or_true, pow_pos]
-
-
-
 def Fin_fun_to_pow : (n m : ℕ) → (Fin n → Fin m) → Fin (m^n) :=
   fun
   | .zero => λ _ _ => ⟨0, by 
@@ -227,35 +209,13 @@ def Fin_fun_to_pow : (n m : ℕ) → (Fin n → Fin m) → Fin (m^n) :=
                   _ = (m + 1) ^ (n + 1) := by
                     rw [Nat.pow_succ']⟩
 
+-- def bool_test : Fin 2 → Fin 3 := by
+--   rintro ⟨y, _⟩
+--   cases y with
+--   | zero => exact 2
+--   | succ _ => exact 1
 
-
--- def Fin_fun_to_pow {n m : ℕ} (f : Fin n → Fin m) : Fin (m^n) := by
---   induction n with
---   | zero => rw [Nat.zero_eq, pow_zero]
---             exact 0
---   | succ n hn => cases m with
---   | zero => simp only [Nat.zero_eq] at f 
---             exact Fin.elim0 (f 0)
---   | succ m => cases' (f 0) with a ha
---               cases' hn (f ∘ Fin.succ) with b hb
---               use a + (m + 1) * b
---               exact calc  a + (m + 1) * b = a + (m + 1) * (b + 1 - 1) := by 
---                             simp only [add_tsub_cancel_right]
---                           _ < (m + 1) + (m + 1) * (b + 1 - 1) := by
---                             simp only [add_lt_add_iff_right, ha]
---                           _ = (m + 1) + (m + 1) * (b + 1) - (m + 1) := by
---                             rw [Nat.mul_sub_left_distrib]
---                             simp only [mul_one, add_pos_iff, or_true, 
---                               le_mul_iff_one_le_right, le_add_iff_nonneg_left, 
---                               zero_le, add_tsub_cancel_of_le, add_tsub_cancel_left]
---                           _ = (m + 1) * (b + 1) := by
---                             simp only [add_tsub_cancel_left]
---                           _ ≤ (m + 1) * ((m + 1) ^ n) := by
---                             simp only [gt_iff_lt, add_pos_iff, or_true, mul_le_mul_left]
---                             rw [← Nat.lt_iff_add_one_le]
---                             exact hb
---                           _ = (m + 1) ^ (n + 1) := by
---                             rw [Nat.pow_succ']
+-- #eval Fin_fun_to_pow _ _ bool_test
 
                             
 def Fin_pow_to_fun : (m n : ℕ) → Fin (m^n) → (Fin n → Fin m) :=
@@ -266,19 +226,10 @@ def Fin_pow_to_fun : (m n : ℕ) → Fin (m^n) → (Fin n → Fin m) :=
   | .succ m => λ _ k ⟨a, _⟩ => ⟨(k / ((m + 1)^a)) % (m + 1), 
                     Nat.mod_lt _ (gt_iff_lt.mp (Nat.zero_lt_succ _))⟩
 
--- def Fin_pow_to_fun {n m : ℕ} (k : Fin (m^n)) : (Fin n → Fin m) := by
---   intro a
---   cases m with
---   | zero => cases n with
---             | zero => exact a
---             | succ n => simp only [Nat.zero_eq, ne_eq, Nat.succ_ne_zero, 
---                           not_false_eq_true, zero_pow'] at k 
---                         exact k
---   | succ m => cases' a with a ha
---               use (k / ((m + 1)^a)) % (m + 1)
---               apply Nat.mod_lt
---               rw [gt_iff_lt]
---               exact Nat.zero_lt_succ _
+-- def y := 5
+
+-- #eval (Fin_pow_to_fun 3 2 y) 0
+-- #eval (Fin_pow_to_fun 3 2 y) 1
 
 lemma Fin_pow_fun_inv : {n m : ℕ} → ∀ k, (Fin_pow_to_fun m n) ((Fin_fun_to_pow n m) k) = k := by
   intro n
@@ -289,53 +240,141 @@ lemma Fin_pow_fun_inv : {n m : ℕ} → ∀ k, (Fin_pow_to_fun m n) ((Fin_fun_to
   | succ n hn =>  intros m k
                   cases m with
     | zero => simp only [Nat.zero_eq, eq_iff_true_of_subsingleton]
-    | succ m => apply funext
-                intro x
-                rw [Fin.mk_eq_mk]
-                unfold Fin_fun_to_pow
+    | succ m => {
+      apply funext
+      rintro ⟨x, hx⟩
+      rw [Fin.mk_eq_mk]
+      unfold Fin_fun_to_pow
+      unfold Fin_pow_to_fun
+      simp only
+      rw [Nat.add_div_eq_of_add_mod_lt]
+      {
+      cases x with
+      | zero => simp only [Nat.zero_eq, pow_zero, Nat.div_one, Nat.add_mul_mod_self_left, 
+        Fin.mk_zero, Nat.mod_succ_eq_iff_lt, Fin.is_lt]
+      | succ x => {
+        exact calc ((k 0).1 / (m + 1) ^ (x + 1) + (m + 1) * ↑(Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ)) / (m + 1) ^ (x + 1)) % (m + 1) 
+          = ((m + 1) * (Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ))/(m + 1)^(x + 1)) % (m + 1) := by {
+              have q : (k 0).1 / (m + 1) ^ (x + 1) + (m + 1) * ↑(Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ)) / (m + 1)^(x + 1) 
+              = ((m + 1) * (Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ))/(m + 1)^(x + 1)) := by
+                simp only [add_left_eq_self]
+                apply Nat.div_eq_zero
+                exact calc  (k 0).1 < m + 1 := (k 0).2
+                    _ ≤ (m + 1) * (m + 1)^x := by
+                      simp only [add_pos_iff, or_true,
+                      le_mul_iff_one_le_right, 
+                      Nat.one_le_pow']
+                    _ = (m + 1)^(x + 1) := by 
+                      simp only [Nat.pow_succ']
+              rw [q]
+            }
+          _ = (m + 1) * (Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ))/((m + 1) * (m + 1)^x) % (m + 1) := by
+              simp only [Nat.pow_succ']
+          _ = (Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ))/((m + 1)^x) % (m + 1) := by
+                simp only [add_pos_iff, or_true, Nat.mul_div_mul_left]
+          _ = ((k ∘ Fin.succ) ⟨x, Nat.lt_of_succ_lt_succ hx⟩).1 := by
+              have q : (Fin_pow_to_fun _ _ (Fin_fun_to_pow _ _ (k ∘ Fin.succ))) ⟨x, Nat.lt_of_succ_lt_succ hx⟩ 
+                = (k ∘ Fin.succ) ⟨x, Nat.lt_of_succ_lt_succ hx⟩ := by
+                simp only [hn, Function.comp_apply, Fin.succ_mk]
+              unfold Fin_pow_to_fun at q
+              simp only at q
+              rw [Fin.mk_eq_mk] at q
+              rw [q]
+          _ = (k ⟨x + 1, hx⟩).1 := by
+              simp only [Function.comp_apply, Fin.succ_mk]
+        }
+      }
+      cases x with
+      | zero => simp only [Nat.zero_eq, pow_zero, Nat.lt_one_iff, add_eq_zero, Nat.mod_one]
+      | succ x => { 
+        exact calc  (k 0).1 % (m + 1)^(x + 1) + (m + 1) * (Fin_fun_to_pow _ _ (k ∘ Fin.succ)).1 % (m + 1)^(x + 1) 
+          = (k 0).1 + (m + 1) * (Fin_fun_to_pow _ _ (k ∘ Fin.succ)).1 % (m + 1)^(x + 1) := by {
+            simp only [add_left_inj]
+            rw [Nat.mod_eq_iff_lt]
+            exact calc  (k 0).1 < (m + 1) := (k 0).2
+                        _ ≤ (m + 1)^(x + 1) := by
+                          simp only [ne_eq, add_eq_zero, and_false, Nat.le_self_pow]
+            simp only [ne_eq, add_pos_iff, or_true, pow_eq_zero_iff, add_eq_zero, and_false, not_false_eq_true]
+          }
+          _ = (k 0).1 + (m + 1) * (Fin_fun_to_pow _ _ (k ∘ Fin.succ)).1 % ((m + 1) * (m + 1)^x) := by {
+            simp only [Nat.pow_succ']
+          }
+          _ = (k 0).1 + (m + 1) * ((Fin_fun_to_pow _ _ (k ∘ Fin.succ)).1 % ((m + 1)^x)) := by {
+            simp only [add_lt_add_iff_left, Nat.mul_mod_mul_left]
+          }
+          _ ≤ (k 0).1 + (m + 1) * ((m + 1)^x - 1) := by {
+            simp only [ge_iff_le, add_le_add_iff_left, gt_iff_lt, add_pos_iff, or_true, mul_le_mul_left]
+            rw [← Nat.lt_succ_iff, Nat.sub_one, Nat.succ_pred]
+            simp only [gt_iff_lt, add_pos_iff, or_true, pow_pos, Nat.mod_lt]
+            apply ne_of_gt
+            simp only [gt_iff_lt, add_pos_iff, or_true, pow_pos]
+          }
+          _ = (k 0).1 + ((m + 1) * (m + 1)^x - (m + 1)) := by
+            simp only [ge_iff_le, Nat.mul_sub_left_distrib, mul_one, gt_iff_lt, add_pos_iff, or_true,
+              mul_le_iff_le_one_right]
+          _ < (m + 1) + ((m + 1) * (m + 1)^x - (m + 1)) := by
+            simp only [ge_iff_le, gt_iff_lt, add_pos_iff, or_true, mul_le_iff_le_one_right, le_mul_iff_one_le_right,
+              add_lt_add_iff_right, Fin.is_lt]
+          _ = (m + 1) + (m + 1) * (m + 1)^x - (m + 1) := by
+            rw [Nat.add_sub_assoc]
+            simp only [gt_iff_lt, add_pos_iff, or_true, le_mul_iff_one_le_right, Nat.one_le_pow]
+          _ = (m + 1)^(x + 1) := by
+            simp only [ge_iff_le, add_le_iff_nonpos_right, nonpos_iff_eq_zero, mul_eq_zero, add_eq_zero, and_false,
+              false_or, add_tsub_cancel_left, Nat.pow_succ']
+          }
+      }                              
+
+lemma Fin_fun_pow_inv : {n m : ℕ} → ∀ k, (@Fin_fun_to_pow n m) ((@Fin_pow_to_fun m n) k) = k := by
+  intro n
+  induction n with
+  | zero => intros m k
+            simp at k
+            simp only [Nat.zero_eq, Nat.pow_zero, eq_iff_true_of_subsingleton]
+  | succ n hn => {
+    intro m
+    cases m with
+    | zero => intro k
+              unfold Fin_pow_to_fun
+              unfold Fin_fun_to_pow
+              simp only
+    | succ m => intro k
                 unfold Fin_pow_to_fun
-                simp only
-                rw [Nat.add_div_of_dvd_left]
-                let q := hn (k ∘ Fin.succ)
-                unfold Fin_pow_to_fun at q
-                simp only at q
-                let q' : (λ x =>  { val := ↑(Fin_fun_to_pow n (Nat.succ m) (k ∘ Fin.succ)) / (m + 1) ^ ↑x % (m + 1), 
-                                    isLt := (_ : ↑(Fin_fun_to_pow n (Nat.succ m) (k ∘ Fin.succ)) 
-                                    / (m + 1) ^ ↑x % (m + 1) < m + 1) })
-                                    = k ∘ Fin.succ := by
-                  rw [q]
-        
-                    
-                have q' : ∀ y, (λ x => (m + 1) * (Fin_fun_to_pow n (m + 1) (k ∘ Fin.succ)) 
-                  / (m + 1)^x % (m + 1)) y = k y := by
-                  intro y
-                  
-                  
+                unfold Fin_fun_to_pow
+                simp only [Fin.ofNat'_zero, Fin.val_zero, pow_zero, Nat.div_one]
+                rw [Fin.mk_eq_mk]
+                cases' k with k hk 
+                {
+    induction k with
+    | zero => simp only [Nat.zero_eq, Nat.zero_mod, Nat.zero_div, Fin.mk_zero, zero_add, mul_eq_zero, add_eq_zero,
+      and_false, false_or]
+              have q := @hn (m + 1) 0
+              unfold Fin_pow_to_fun at q
+              simp only [Nat.add_eq, Fin.val_zero, add_zero, Nat.zero_div, Nat.zero_mod, Fin.mk_zero] at q 
+              rw [Fin.mk_eq_mk] at q
+              exact calc (Fin_fun_to_pow n (Nat.succ m) ((λ _ => 0) ∘ Fin.succ)).1
+                          = (Fin_fun_to_pow n (Nat.succ m) (λ _ => 0)).1 := by 
+                            have p : ((λ _ => 0) ∘ Fin.succ) = (λ (_ : Fin n) => (0 : Fin (m + 1))) := by
+                              apply funext
+                              intro x
+                              simp only [Function.comp_apply]
+                            rw [p]
+                          _ = 0 := by
+                            simp only [q, Fin.val_zero]
+    | succ k hk' => simp only
+                    have q := @hn (m + 1) k
+                    unfold Fin_pow_to_fun at q
+                    simp only [Nat.add_eq, Fin.coe_ofNat_eq_mod, add_zero] at q 
+                    rw [Fin.mk_eq_mk] at q
+                    exact calc (k + 1) % (m + 1) + (m + 1) * (Fin_fun_to_pow n (m + 1)
+  ((fun x => { val := Nat.succ k / (m + 1) ^ ↑x % (m + 1), isLt := (_ : ↑{ val := Nat.succ k, isLt := hk } / (m + 1) ^ ↑x % (m + 1) < m + 1) }) ∘
+            Fin.succ)) =
+  Nat.succ k
 
-
+      }
+ 
+  } 
                 
 
-                
-
-
---   intro k
---   induction n with
---   | zero => unfold Fin_pow_to_fun
---             simp only [Nat.zero_eq, eq_iff_true_of_subsingleton]
---   | succ n hn =>  cases m with
---                   | zero => simp only [Nat.zero_eq, eq_iff_true_of_subsingleton]
---                   | succ m => unfold Fin_pow_to_fun
---                               simp only
---                               apply funext
---                               intro x
---                               unfold Fin_fun_to_pow
-                              
-
-
-
-                              
-
--- lemma Fin_fun_pow_inv {n m : ℕ} : ∀ k, (@Fin_fun_to_pow n m) ((@Fin_pow_to_fun n m) k) = k := sorry
             
 
 -- def Lagrange_Interpolation (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
