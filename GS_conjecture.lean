@@ -161,6 +161,77 @@ lemma MapFinSum_eq_FinSumMap {R : Type u} [CommSemiring R] {S : Type v}
                    rfl
 
 
+lemma FinProduct_mul {R : Type u} [CommSemiring R] {n : ℕ} {f g : Fin n → R} :
+  (FinProduct R n f) * (FinProduct R n g) = FinProduct R n (λ k => (f k) * (g k)) := by
+    induction n with
+    | zero => repeat rw [FinProductZero]
+              exact mul_one _
+    | succ n hn => {
+      repeat rw [FinProductSucc]
+      rw [← mul_assoc]
+      simp only [mul_comm]
+      rw [← mul_assoc]
+      simp only [mul_comm]
+      rw [← hn]
+      rw [mul_assoc]
+    } 
+
+lemma FinSum_add {R : Type u} [CommSemiring R] {n : ℕ} {f g : Fin n → R} :
+  (FinSum R n f) + (FinSum R n g) = FinSum R n (λ k => (f k) + (g k)) := by
+    induction n with
+    | zero => repeat rw [FinSumZero]
+              exact add_zero _
+    | succ n hn => {
+      repeat rw [FinSumSucc]
+      rw [← add_assoc]
+      simp only [add_comm]
+      rw [← add_assoc]
+      simp only [add_comm]
+      rw [← hn]
+      rw [add_assoc]
+    } 
+
+lemma FinSum_mul {R : Type u} [CommSemiring R] {n : ℕ} {f : Fin n → R} {r : R} :
+  r * FinSum R n f = FinSum R n (λ k => r * (f k)) := by
+    induction n with
+    | zero => simp only [Nat.zero_eq, FinSumZero, mul_zero]
+    | succ n hn =>  simp only [FinSumSucc] 
+                    rw [mul_add, hn]
+
+lemma FinSum_sub {R : Type u} [CommRing R] {n : ℕ} {f g : Fin n → R} :
+  (FinSum R n f) - (FinSum R n g) = FinSum R n (λ k => (f k) - (g k)) := by
+    rw [sub_eq_add_neg, neg_eq_neg_one_mul, FinSum_mul, FinSum_add]
+    simp only [neg_mul, one_mul]
+    simp only [sub_eq_add_neg]
+
+lemma FinSum_Ones {R : Type u} [CommSemiring R] {n : ℕ} :
+  (FinSum R n (λ _ => 1)) = n := by
+    induction n with
+    | zero => simp only [Nat.zero_eq, FinSumZero, Nat.cast_zero]
+    | succ n hn =>  simp only [FinSumSucc, Nat.cast_succ]
+                    rw [hn]
+                    rw [add_comm]
+
+
+lemma FinSum_Nat_le {n : ℕ} {f g : Fin n → ℕ} 
+  {hf : ∀ k, 0 < (f k)} {p : ∀ k, (f k) ≤ (g k)} :
+  (FinSum ℕ n f) ≤ (FinSum ℕ n g) := by 
+    induction n with
+    | zero => repeat rw [FinSumZero]
+    | succ n hn =>  repeat rw [FinSumSucc]
+                    have q := @hn (λ x => f (Fin.succ x)) (λ x => g (Fin.succ x)) 
+                      (λ x => hf (Fin.succ x)) (λ x => p (Fin.succ x))
+                    exact calc (f 0) + FinSum ℕ n (λ x => f (Fin.succ x))
+                      ≤ (f 0) + FinSum ℕ n (λ x => g (Fin.succ x)) := by {
+                        apply add_le_add_left
+                        exact q
+                      }
+                      _ ≤ (g 0) + FinSum ℕ n (λ x => g (Fin.succ x)) := by {
+                        apply add_le_add_right
+                        exact p 0
+                      }
+
+
 noncomputable section
 
 def LBF_f_x_y (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
@@ -216,7 +287,6 @@ def Fin_fun_to_pow : (n m : ℕ) → (Fin n → Fin m) → Fin (m^n) :=
 --   | succ _ => exact 1
 
 -- #eval Fin_fun_to_pow _ _ bool_test
-
                             
 def Fin_pow_to_fun : (m n : ℕ) → Fin (m^n) → (Fin n → Fin m) :=
   fun
@@ -231,6 +301,8 @@ def Fin_pow_to_fun : (m n : ℕ) → Fin (m^n) → (Fin n → Fin m) :=
 -- #eval (Fin_pow_to_fun 3 2 y) 0
 -- #eval (Fin_pow_to_fun 3 2 y) 1
 
+
+-- Please ignore how bad these proofs are
 lemma Fin_pow_fun_inv : {n m : ℕ} → ∀ k, (Fin_pow_to_fun m n) ((Fin_fun_to_pow n m) k) = k := by
   intro n
   induction n with
@@ -404,156 +476,153 @@ lemma Fin_fun_pow_inv : {n m : ℕ} → ∀ k, (@Fin_fun_to_pow n m) ((@Fin_pow_
   } 
 
 
-                
+def Lagrange_Interpolation (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
+  (Z : Fin m → R) (V : (Fin n → Fin m) → R)
+  : MvPolynomial (Fin n) R := 
+    FinSum (MvPolynomial (Fin n) R) (m^n) 
+      (λ k => (V (Fin_pow_to_fun _ _ k)) • LBF_f R n m Z (Fin_pow_to_fun _ _ k))
 
-            
+lemma LBF_f_x_y_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R} (hZ : Function.Injective Z)
+  {f : Fin n → Fin m} {x : Fin n} {y : Fin m}
+  {g : Fin n → R} (hg : (g x) = Z (f x)) 
+  : ((eval g (LBF_f_x_y R n m Z f x y)) = 1) := by
+    unfold LBF_f_x_y
+    by_cases (f x = y)
+    simp only [dite_eq_ite, h, ite_true]
+    repeat rw [map_one]
+    simp only [dite_eq_ite, h, ite_false]
+    simp only [map_add, smul_eval, eval_X, eval_C, mul_neg]
+    rw [hg]
+    rw[← sub_eq_add_neg]
+    have q : Z (f x) - Z y ≠ 0 := by
+      intro p
+      have p' : Z (f x) - Z y + Z y = Z y := by
+        simp only [p, zero_add]
+      simp only [sub_add_cancel] at p' 
+      exact ((h (hZ p')))
+    simp only [ne_eq, q, not_false_eq_true, inv_mul_cancel]
 
--- def Lagrange_Interpolation (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
---   (Z : Fin m → R) (V : (Fin n → Fin m) → R)
---   : MvPolynomial (Fin n) R := 
---     FinSum (MvPolynomial (Fin n) R) (n^m) 
---       (λ k => (V (Fin_pow_to_fun k)) • LBF_f R n m Z (Fin_pow_to_fun k))
-
--- lemma LBF_f_x_y_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R} (hZ : Function.Injective Z)
---   {f : Fin n → Fin m} {x : Fin n} {y : Fin m}
---   {g : Fin n → R} (hg : (g x) = Z (f x)) 
---   : ((eval g (LBF_f_x_y R n m Z f x y)) = 1) := by
---     unfold LBF_f_x_y
---     by_cases (f x = y)
---     simp only [dite_eq_ite, h, ite_true]
---     repeat rw [map_one]
---     simp only [dite_eq_ite, h, ite_false]
---     simp only [map_add, smul_eval, eval_X, eval_C, mul_neg]
---     rw [hg]
---     rw[← sub_eq_add_neg]
---     have q : Z (f x) - Z y ≠ 0 := by
---       intro p
---       have p' : Z (f x) - Z y + Z y = Z y := by
---         simp only [p, zero_add]
---       simp only [sub_add_cancel] at p' 
---       exact ((h (hZ p')))
---     simp only [ne_eq, q, not_false_eq_true, inv_mul_cancel]
-
--- lemma LBF_f_x_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R} (hZ : Function.Injective Z)
---   {f : Fin n → Fin m} {x : Fin n}
---   {g : Fin n → R} (hg : (g x) = Z (f x)) 
---   : ((eval g (LBF_f_x R n m Z f x)) = 1) := by
---     unfold LBF_f_x
---     rw [EvalFinProduct_eq_FinProductEval]
---     apply FinProduct_eq_One
---     intro k
---     rw [Function.comp_apply]
---     exact LBF_f_x_y_eq_One hZ hg
+lemma LBF_f_x_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R} (hZ : Function.Injective Z)
+  {f : Fin n → Fin m} {x : Fin n}
+  {g : Fin n → R} (hg : (g x) = Z (f x)) 
+  : ((eval g (LBF_f_x R n m Z f x)) = 1) := by
+    unfold LBF_f_x
+    rw [EvalFinProduct_eq_FinProductEval]
+    apply FinProduct_eq_One
+    intro k
+    rw [Function.comp_apply]
+    exact LBF_f_x_y_eq_One hZ hg
     
--- lemma LBF_f_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R} (hZ : Function.Injective Z)
---   {f : Fin n → Fin m}
---   {g : Fin n → R} (hg : ∀ k, (g k) = Z (f k)) 
---   : ((eval g (LBF_f R n m Z f)) = 1) := by
---     unfold LBF_f
---     rw [EvalFinProduct_eq_FinProductEval]
---     apply FinProduct_eq_One
---     intro k
---     rw [Function.comp_apply]
---     exact LBF_f_x_eq_One hZ (hg k)
+lemma LBF_f_eq_One {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R} (hZ : Function.Injective Z)
+  {f : Fin n → Fin m}
+  {g : Fin n → R} (hg : ∀ k, (g k) = Z (f k)) 
+  : ((eval g (LBF_f R n m Z f)) = 1) := by
+    unfold LBF_f
+    rw [EvalFinProduct_eq_FinProductEval]
+    apply FinProduct_eq_One
+    intro k
+    rw [Function.comp_apply]
+    exact LBF_f_x_eq_One hZ (hg k)
 
--- lemma LBF_f_x_eq_Zero {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R}
---   {f : Fin n → Fin m} {x : Fin n}
---   {g : Fin n → R} {w : Fin m} 
---   (hg : (g x) = (Z w)) (hw : (f x) ≠ w)
---   : ((eval g (LBF_f_x R n m Z f x)) = 0) := by
---     unfold LBF_f_x 
---     rw [EvalFinProduct_eq_FinProductEval]
---     apply FinProduct_eq_Zero w
---     rw [Function.comp_apply]
---     unfold LBF_f_x_y 
---     simp only [dite_eq_ite, hw, map_one, ite_false]
---     simp only [map_add, smul_eval, eval_X, eval_C]
---     rw [mul_eq_zero]
---     right
---     rw [hg]
---     simp only [add_right_neg]
+lemma LBF_f_x_eq_Zero {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R}
+  {f : Fin n → Fin m} {x : Fin n}
+  {g : Fin n → R} {w : Fin m} 
+  (hg : (g x) = (Z w)) (hw : (f x) ≠ w)
+  : ((eval g (LBF_f_x R n m Z f x)) = 0) := by
+    unfold LBF_f_x 
+    rw [EvalFinProduct_eq_FinProductEval]
+    apply FinProduct_eq_Zero w
+    rw [Function.comp_apply]
+    unfold LBF_f_x_y 
+    simp only [dite_eq_ite, hw, map_one, ite_false]
+    simp only [map_add, smul_eval, eval_X, eval_C]
+    rw [mul_eq_zero]
+    right
+    rw [hg]
+    simp only [add_right_neg]
 
--- lemma LBF_f_eq_Zero {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R}
---   {f : Fin n → Fin m}
---   {g : Fin n → R} (h : Fin n → Fin m) 
---   (hg : ∀ (k : Fin n), (g k) = Z (h k)) (hh : ∃ (k : Fin n), f k ≠ h k)
---   : ((eval g (LBF_f R n m Z f)) = 0) := by
---     unfold LBF_f
---     rw [EvalFinProduct_eq_FinProductEval]
---     rcases hh with ⟨k, hk⟩
---     apply FinProduct_eq_Zero k
---     rw [Function.comp_apply]
---     exact LBF_f_x_eq_Zero (hg k) hk
+lemma LBF_f_eq_Zero {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R}
+  {f : Fin n → Fin m}
+  {g : Fin n → R} (h : Fin n → Fin m) 
+  (hg : ∀ (k : Fin n), (g k) = Z (h k)) (hh : ∃ (k : Fin n), f k ≠ h k)
+  : ((eval g (LBF_f R n m Z f)) = 0) := by
+    unfold LBF_f
+    rw [EvalFinProduct_eq_FinProductEval]
+    rcases hh with ⟨k, hk⟩
+    apply FinProduct_eq_Zero k
+    rw [Function.comp_apply]
+    exact LBF_f_x_eq_Zero (hg k) hk
 
--- theorem Eval_Lagrange_Interpolation {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R} (hZ : Function.Injective Z) {V : (Fin n → Fin m) → R}
---   {g : Fin n → Fin m}
---   : (eval (Z ∘ g) (Lagrange_Interpolation R n m Z V) = V g) := by
---     unfold Lagrange_Interpolation
---     rw [EvalFinSum_eq_FinSumEval]
---     have q : V g = (eval (Z ∘ g) ∘ (λ k => 
---       V (Fin_pow_to_fun k) • LBF_f R n m Z (Fin_pow_to_fun k))) (Fin_fun_to_pow g) := by
---         rw [Function.comp_apply]
---         rw [Fin_pow_fun_inv]
---         simp only [smul_eval]
---         have q' : (eval (Z ∘ g) (LBF_f R n m Z g)) = 1 := by
---           apply LBF_f_eq_One hZ
---           intro k
---           exact Function.comp_apply
---         rw [q']
---         rw [mul_one]
---     rw [q]
---     apply FinSum_almost_all_Zero
---     intros t ht
---     rw [Function.comp_apply]
---     simp only [smul_eval, mul_eq_zero]
---     right
---     apply LBF_f_eq_Zero g
---     intro k
---     rw [Function.comp_apply]
---     have ht' : Fin_pow_to_fun t ≠ g := by
---       intro p
---       have p' : Fin_fun_to_pow (Fin_pow_to_fun t) = Fin_fun_to_pow g := by
---         simp only [p]
---       rw [Fin_fun_pow_inv] at p'
---       exact ht p'
---     have ht'' : ¬ (∀ k, (Fin_pow_to_fun t) k = g k) := by
---       exact λ p => ht' (funext p)
---     rw [not_forall] at ht'' 
---     simp only [ne_eq]
---     exact ht''
+theorem Eval_Lagrange_Interpolation {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R} (hZ : Function.Injective Z) {V : (Fin n → Fin m) → R}
+  {g : Fin n → Fin m}
+  : (eval (Z ∘ g) (Lagrange_Interpolation R n m Z V) = V g) := by
+    unfold Lagrange_Interpolation
+    rw [EvalFinSum_eq_FinSumEval]
+    have q : V g = (eval (Z ∘ g) ∘ (λ k => 
+      V (Fin_pow_to_fun _ _ k) • LBF_f R n m Z (Fin_pow_to_fun _ _ k))) (Fin_fun_to_pow _ _ g) := by
+        rw [Function.comp_apply]
+        rw [Fin_pow_fun_inv]
+        simp only [smul_eval]
+        have q' : (eval (Z ∘ g) (LBF_f R n m Z g)) = 1 := by
+          apply LBF_f_eq_One hZ
+          intro k
+          exact Function.comp_apply
+        rw [q']
+        rw [mul_one]
+    rw [q]
+    apply FinSum_almost_all_Zero
+    intros t ht
+    rw [Function.comp_apply]
+    simp only [smul_eval, mul_eq_zero]
+    right
+    apply LBF_f_eq_Zero g
+    intro k
+    rw [Function.comp_apply]
+    have ht' : Fin_pow_to_fun _ _ t ≠ g := by
+      intro p
+      have p' : Fin_fun_to_pow _ _ (Fin_pow_to_fun _ _ t) = Fin_fun_to_pow _ _ g := by
+        simp only [p]
+      rw [Fin_fun_pow_inv] at p'
+      exact ht p'
+    have ht'' : ¬ (∀ k, (Fin_pow_to_fun _ _ t) k = g k) := by
+      exact λ p => ht' (funext p)
+    rw [not_forall] at ht'' 
+    simp only [ne_eq]
+    exact ht''
 
 
--- lemma LBF_f_x_fx_deg_x {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
---   {Z : Fin m → R}
---   {f : Fin n → Fin m} {x : Fin n}
---   : ((degreeOf x (LBF_f_x_y R n m Z f x (f x))) = 0) := by
---     unfold LBF_f_x_y
---     simp only [dite_eq_ite, ite_true]
---     rw [degreeOf_C]
+lemma LBF_f_x_fx_deg_x {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
+  {Z : Fin m → R}
+  {f : Fin n → Fin m} {x : Fin n}
+  : ((degreeOf x (LBF_f_x_y R n m Z f x (f x))) = 0) := by
+    unfold LBF_f_x_y
+    simp only [dite_eq_ite, ite_true]
+    rw [degreeOf_C]
 
--- -- lemma LBF_f_x_y_deg_x {R : Type u} [Field R] [DecidableEq R] {n m : ℕ}
--- --   {Z : Fin m → R}
--- --   {f : Fin n → Fin m} {x : Fin n} {y : Fin m}
--- --   (hf : f x ≠ y)
--- --   : ((degreeOf x (LBF_f_x_y R n m Z f x y)) = 1) := by
--- --     sorry
---     -- unfold LBF_f_x_y
---     -- simp only [hf, dite_eq_ite, ite_false]
---     -- rw [← le_zero_iff]
---     -- rw [smul_eq_C_mul]
---     -- have q : (degreeOf x (C (Z (f x) - Z y)⁻¹)) + (degreeOf x ((X x) + C (- Z y))) = 0 := by
---     --   rw [degreeOf_C]
---     --   rw [zero_add]
---     --   rw [← le_zero_iff]
---     --   have q' : (degreeOf x (X x)) + (degreeOf x (C (-Z y))) = 0 := by
---     --     rw [degreeOf_X]
---     -- rw [← q]
---     -- exact degreeOf_mul_le x (C (Z (f x) - Z y)⁻¹) ((X x) + C (- Z y))
-
+lemma LBF_f_x_y_deg_x {R : Type u} [Field R] [DecidableEq R] [Nontrivial R] {n m : ℕ}
+  {Z : Fin m → R}
+  {f : Fin n → Fin m} {x : Fin n} {y : Fin m}
+  (hf : f x ≠ y)
+  : ((degreeOf x (LBF_f_x_y R n m Z f x y)) ≤ 1) := by
+    unfold LBF_f_x_y
+    simp only [hf, dite_eq_ite, ite_false, smul_eq_C_mul]
+    exact calc  degreeOf x (C (Z (f x) - Z y)⁻¹ * (X x + C (-Z y)))
+                ≤ degreeOf x (C (Z (f x) - Z y)⁻¹) + degreeOf x (X x + C (-Z y)) := by {
+                  exact degreeOf_mul_le _ _ _ 
+                }
+                _ = degreeOf x (X x + C (-Z y)) := by {
+                  simp only [degreeOf_C, zero_add]
+                }
+                _ ≤ max (degreeOf x (X x)) (degreeOf x (C (-Z y))) := by {
+                  exact degreeOf_add_le _ _ _
+                }
+                _ ≤ 1 := by {
+                  simp only [degreeOf_X,  degreeOf_C,max_eq_left]
+                }
 
