@@ -344,7 +344,7 @@ lemma Fin_fun_pow_inv : {n m : ℕ} → ∀ k, (@Fin_fun_to_pow n m) ((@Fin_pow_
                 rw [Fin.mk_eq_mk]
                 cases' k with k hk 
                 {
-    induction k with
+    cases k with
     | zero => simp only [Nat.zero_eq, Nat.zero_mod, Nat.zero_div, Fin.mk_zero, zero_add, mul_eq_zero, add_eq_zero,
       and_false, false_or]
               have q := @hn (m + 1) 0
@@ -355,24 +355,55 @@ lemma Fin_fun_pow_inv : {n m : ℕ} → ∀ k, (@Fin_fun_to_pow n m) ((@Fin_pow_
                           = (Fin_fun_to_pow n (Nat.succ m) (λ _ => 0)).1 := by 
                             have p : ((λ _ => 0) ∘ Fin.succ) = (λ (_ : Fin n) => (0 : Fin (m + 1))) := by
                               apply funext
-                              intro x
+                              intro _
                               simp only [Function.comp_apply]
                             rw [p]
                           _ = 0 := by
                             simp only [q, Fin.val_zero]
-    | succ k hk' => simp only
-                    have q := @hn (m + 1) k
-                    unfold Fin_pow_to_fun at q
-                    simp only [Nat.add_eq, Fin.coe_ofNat_eq_mod, add_zero] at q 
-                    rw [Fin.mk_eq_mk] at q
-                    exact calc (k + 1) % (m + 1) + (m + 1) * (Fin_fun_to_pow n (m + 1)
-  ((fun x => { val := Nat.succ k / (m + 1) ^ ↑x % (m + 1), isLt := (_ : ↑{ val := Nat.succ k, isLt := hk } / (m + 1) ^ ↑x % (m + 1) < m + 1) }) ∘
-            Fin.succ)) =
-  Nat.succ k
-
+    | succ k => simp only
+                let k' := (k + 1)/(m + 1)
+                have hk' : (k' < ((m + 1)^n)) := by
+                  exact calc (k + 1)/(m + 1) < (m + 1)^(n + 1)/(m + 1) := by {
+                    apply Nat.div_lt_div_of_lt_of_dvd
+                    use (m + 1)^n
+                    exact Nat.pow_succ'
+                    exact hk
+                  }
+                  _ = ((m + 1)^n * (m + 1))/(m + 1) := by {
+                    simp only [Nat.pow_succ]
+                  }
+                  _ = (m + 1)^n := by {
+                    simp only [add_pos_iff, or_true, Nat.mul_div_left]
+                  }
+                have q := (@hn (m + 1)) ⟨k', hk'⟩
+                unfold Fin_pow_to_fun at q
+                simp only [Nat.add_eq, add_zero] at q 
+                rw [Fin.mk_eq_mk] at q
+                have q' : (λ (x : Fin n) =>
+      (({ val := (k + 1) / (m + 1) / (m + 1) ^ x.1 % (m + 1), isLt := (by {
+          apply Nat.mod_lt
+          simp only [gt_iff_lt, add_pos_iff, or_true]
+          } : (k + 1) / (m + 1) / (m + 1) ^ x.1 % (m + 1) < m + 1) }) : Fin (m + 1)))
+                  = ((λ (x : Fin (n + 1)) =>
+              ({ val := (k + 1) / (m + 1) ^ x.1 % (m + 1), isLt := (by {
+                apply Nat.mod_lt
+                simp only [gt_iff_lt, add_pos_iff, or_true]
+                } : (k + 1) / (m + 1) ^ x.1 % (m + 1) < m + 1) } : Fin (m + 1))) ∘ Fin.succ) := by {
+                apply funext
+                rintro ⟨x, hx⟩
+                simp only [Function.comp_apply, Fin.succ_mk, Fin.mk.injEq]
+                have q'' : (k + 1)/(m + 1) / (m + 1)^x = (k + 1) / (m + 1)^(x + 1) := by {
+                  rw [Nat.div_div_eq_div_mul, Nat.pow_succ']
+                }
+                rw [q'']
+              }
+                simp only [Nat.add_eq, q'] at q 
+                simp only [q]
+                exact Nat.mod_add_div _ _
       }
- 
   } 
+
+
                 
 
             
