@@ -212,15 +212,48 @@ lemma FinSum_Ones {R : Type u} [CommSemiring R] {n : ℕ} :
                     rw [hn]
                     rw [add_comm]
 
+lemma FinSum_One_x {R : Type u} [CommSemiring R] {n : ℕ} {x : Fin (n + 1)} :
+  (FinSum R (n + 1) (λ y => if (x = y) then 1 else 0)) = 1 :=
+    calc FinSum R (n + 1) (λ y => if (x = y) then 1 else 0)
+      = (λ y => if (x = y) then 1 else 0) x := by {
+        apply FinSum_almost_all_Zero
+        intros t ht
+        simp only [ite_eq_right_iff]
+        intro h
+        rw [h] at ht
+        exfalso
+        exact ht rfl
+      }
+      _ = 1 := by {
+        simp only [ite_true]
+      }
+
+lemma FinProduct_Nat_le {n : ℕ} {f g : Fin n → ℕ} 
+  {hf : ∀ k, 0 < (f k)} {p : ∀ k, (f k) ≤ (g k)} :
+  (FinProduct ℕ n f) ≤ (FinProduct ℕ n g) := by 
+    induction n with
+    | zero => repeat rw [FinProductZero]
+    | succ n hn =>  repeat rw [FinProductSucc]
+                    have q := @hn (λ x => f (Fin.succ x)) (λ x => g (Fin.succ x)) 
+                      (λ x => hf (Fin.succ x)) (λ x => p (Fin.succ x))
+                    exact calc (f 0) * FinProduct ℕ n (λ x => f (Fin.succ x))
+                      ≤ (f 0) * FinProduct ℕ n (λ x => g (Fin.succ x)) := by {
+                        apply Nat.mul_le_mul_left
+                        exact q
+                      }
+                      _ ≤ (g 0) * FinProduct ℕ n (λ x => g (Fin.succ x)) := by {
+                        apply Nat.mul_le_mul_right
+                        exact p 0
+                      }
 
 lemma FinSum_Nat_le {n : ℕ} {f g : Fin n → ℕ} 
-  {hf : ∀ k, 0 < (f k)} {p : ∀ k, (f k) ≤ (g k)} :
+  {p : ∀ k, (f k) ≤ (g k)} :
   (FinSum ℕ n f) ≤ (FinSum ℕ n g) := by 
     induction n with
     | zero => repeat rw [FinSumZero]
     | succ n hn =>  repeat rw [FinSumSucc]
                     have q := @hn (λ x => f (Fin.succ x)) (λ x => g (Fin.succ x)) 
-                      (λ x => hf (Fin.succ x)) (λ x => p (Fin.succ x))
+                      (λ x => p (Fin.succ x))
                     exact calc (f 0) + FinSum ℕ n (λ x => f (Fin.succ x))
                       ≤ (f 0) + FinSum ℕ n (λ x => g (Fin.succ x)) := by {
                         apply add_le_add_left
@@ -233,6 +266,26 @@ lemma FinSum_Nat_le {n : ℕ} {f g : Fin n → ℕ}
 
 
 noncomputable section
+
+lemma FinProduct_degreeOf_le {R : Type u} [CommSemiring R] {m n : ℕ} 
+  {f : Fin m → MvPolynomial (Fin n) R} {x : Fin n} :
+  degreeOf x (FinProduct (MvPolynomial (Fin n) R) m f) 
+  ≤ FinSum ℕ m (λ y => degreeOf x (f y)) := by
+    induction m with
+    | zero => simp only [Nat.zero_eq, FinProductZero, FinSumZero]
+              rw [← C_1]
+              simp only [degreeOf_C]
+    | succ m hm => {
+      simp only [FinProductSucc, FinSumSucc]
+      exact calc 
+        _ ≤ (degreeOf x (f 0)) + (degreeOf x (FinProduct (MvPolynomial (Fin n) R) m (fun x => f (Fin.succ x)))) := by {
+          simp only [degreeOf_mul_le]          
+        }
+        _ ≤ _ := by {
+          apply add_le_add_left
+          exact hm
+        }
+    }
 
 def LBF_f_x_y (R : Type u) [Field R] [DecidableEq R] (n m : ℕ) 
   (Z : Fin m → R) (f : Fin n → Fin m) (x : Fin n) (y : Fin m)
@@ -626,3 +679,73 @@ lemma LBF_f_x_y_deg_x {R : Type u} [Field R] [DecidableEq R] [Nontrivial R] {n m
                   simp only [degreeOf_X,  degreeOf_C,max_eq_left]
                 }
 
+lemma LBF_f_x_y_deg_x_if {R : Type u} [Field R] [DecidableEq R] [Nontrivial R] {n m : ℕ}
+  {Z : Fin m → R}
+  {f : Fin n → Fin m} {x : Fin n} {y : Fin m} 
+  : (degreeOf x (LBF_f_x_y R n m Z f x y)) ≤ if (f x = y) then 0 else 1 := by {
+    by_cases (f x = y)
+    simp only [h, ite_true, nonpos_iff_eq_zero]
+    rw [← h]
+    exact LBF_f_x_fx_deg_x
+    simp only [h, ite_false]
+    exact LBF_f_x_y_deg_x h
+  }
+
+lemma LBF_f_x_deg_x {R : Type u} [Field R] [DecidableEq R] [Nontrivial R] {n m : ℕ}
+  {Z : Fin m → R}
+  {f : Fin n → Fin m} {x : Fin n}
+  : degreeOf x (LBF_f_x R n m Z f x) ≤ m - 1 := by
+    cases n with
+    | zero => unfold LBF_f_x
+              simp only [Nat.zero_eq] at x 
+              exact Fin.elim0 x
+    | succ n => {
+      cases m with
+      | zero => unfold LBF_f_x
+                simp only [Nat.zero_eq, FinProductZero, ge_iff_le, tsub_eq_zero_of_le, nonpos_iff_eq_zero]
+                rw [← C_1, degreeOf_C]
+      | succ m => {
+          unfold LBF_f_x
+          exact calc _ ≤ FinSum ℕ (m + 1) (λ y => degreeOf x (LBF_f_x_y R (Nat.succ n) (m + 1) Z f x y)) := by {
+            exact FinProduct_degreeOf_le
+          }
+          _ ≤ FinSum ℕ (m + 1) (λ y => if (f x = y) then 0 else 1) := by {
+            apply FinSum_Nat_le
+            intro y
+            exact LBF_f_x_y_deg_x_if
+          }
+          _ ≤ FinSum ℕ (m + 1) (λ y => if (f x = y) then 0 else 1) + 1 - 1 := by {
+            rw [Nat.add_sub_cancel]
+          } 
+          _ = FinSum ℕ (m + 1) (λ y => if (f x = y) then 0 else 1) + (FinSum ℕ (m + 1) (λ y => if (f x = y) then 1 else 0)) - 1 := by {
+            have q : FinSum ℕ (m + 1) (λ y => if (f x = y) then 0 else 1) + 1 
+              = FinSum ℕ (m + 1) (λ y => if (f x = y) then 0 else 1) 
+              + (FinSum ℕ (m + 1) (λ y => if (f x = y) then 1 else 0)) := by
+              rw [FinSum_One_x]
+            rw [q]
+          }
+          _ = FinSum ℕ (m + 1) (λ y => (if (f x = y) then 0 else 1) + (if (f x = y) then 1 else 0)) - 1 := by {
+            rw [FinSum_add]
+          }
+          _ = FinSum ℕ (m + 1) (λ _ => 1) - 1 := by {
+            let q : (λ y => (if (f x = y) then 0 else 1) + (if (f x = y) then 1 else 0)) = (λ _ => 1) := by
+              apply funext
+              intro y
+              by_cases (f x = y)
+              simp only [h, ite_true, zero_add]
+              simp only [h, ite_false, add_zero]
+            rw [q]
+          }
+          _ = (m + 1) - 1 := by {
+            rw [FinSum_Ones]
+            exact rfl
+          }
+      }
+    }
+
+
+      -- exact calc degreeOf x (LBF_f_x R (n + 1) m Z f x) 
+      --             = _ := by {
+                    
+      --             }
+      -- }
